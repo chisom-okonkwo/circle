@@ -1,5 +1,5 @@
-import { Alert, Button, StyleSheet, Text, View } from 'react-native';
 import { signOut } from 'firebase/auth';
+import { Alert, Button, StyleSheet, Text, View } from 'react-native';
 import { auth } from '../services/firebase';
 
 export default function HomeScreen() {

@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../services/firebase';
+import { useState } from 'react';
+import { Alert, Button, StyleSheet, Text, TextInput, View } from 'react-native';
 import { RootStackParamList } from '../navigation/AuthNavigator';
+import { auth } from '../services/firebase';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
