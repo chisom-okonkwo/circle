@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -62,19 +63,22 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
+  useFocusEffect(
+    useCallback(() => {
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
 
-    getContactById(userId, contactId).then((result) => {
-      if (result.success && result.data) {
-        setContact(result.data);
-      } else {
-        Alert.alert('Error', 'Could not load contact.');
-      }
-      setLoading(false);
-    });
-  }, [contactId]);
+      setLoading(true);
+      getContactById(userId, contactId).then((result) => {
+        if (result.success && result.data) {
+          setContact(result.data);
+        } else {
+          Alert.alert('Error', 'Could not load contact.');
+        }
+        setLoading(false);
+      });
+    }, [contactId])
+  );
 
   if (loading) {
     return (

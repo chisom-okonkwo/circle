@@ -1,5 +1,6 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -38,23 +39,36 @@ export default function ContactListScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [activeTier, setActiveTier] = useState(0);
 
-  useEffect(() => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) return;
+  useFocusEffect(
+    useCallback(() => {
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
 
-    getContacts(userId).then((result) => {
-      if (result.success) {
-        setContacts(result.data);
-      }
-      setLoading(false);
+      setLoading(true);
+      getContacts(userId).then((result) => {
+        if (result.success) {
+          setContacts(result.data);
+        }
+        setLoading(false);
+      });
+    }, [])
+  );
+
+  const HEALTH_RANK = { red: 0, yellow: 1, green: 2 };
+
+  const filtered = contacts
+    .filter((contact) => {
+      const matchesTier = activeTier === 0 || contact.tier === activeTier;
+      const matchesSearch = contact.name?.toLowerCase().includes(search.toLowerCase());
+      return matchesTier && matchesSearch;
+    })
+    .sort((a, b) => {
+      const healthA = getContactHealth(a);
+      const healthB = getContactHealth(b);
+      const rankDiff = HEALTH_RANK[healthA] - HEALTH_RANK[healthB];
+      if (rankDiff !== 0) return rankDiff;
+      return (a.name ?? '').localeCompare(b.name ?? '');
     });
-  }, []);
-
-  const filtered = contacts.filter((contact) => {
-    const matchesTier = activeTier === 0 || contact.tier === activeTier;
-    const matchesSearch = contact.name?.toLowerCase().includes(search.toLowerCase());
-    return matchesTier && matchesSearch;
-  });
 
   function getContactHealth(contact) {
     const nextTouch = toJsDate(contact.nextTouchDate);
