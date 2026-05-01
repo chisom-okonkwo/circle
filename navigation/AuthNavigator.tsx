@@ -48,8 +48,9 @@ export default function AuthNavigator() {
     <Stack.Navigator>
       {user ? (
         <>
-          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
           <Stack.Screen name="ContactList" component={ContactListScreen} options={{ title: 'My Contacts' }} />
+          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
+          
           <Stack.Screen name="ContactProfile" component={ContactProfileScreen} options={{ title: 'Contact' }} />
           <Stack.Screen name="AddContact" component={AddContactScreen} options={{ title: 'Add Contact' }} />
           <Stack.Screen name="LogInteraction" component={LogInteractionScreen} options={{ title: 'Log Interaction' }} />

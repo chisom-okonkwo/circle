@@ -13,6 +13,7 @@ import {
 import { RootStackParamList } from '../navigation/AuthNavigator';
 import { getContactById } from '../services/contactsService';
 import { auth } from '../services/firebase';
+import { getInteractionsByContact } from '../services/interactionsService';
 import { getHealthStatus } from '../services/relationshipUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ContactProfile'>;
@@ -41,6 +42,21 @@ const HEALTH_LABELS: Record<string, string> = {
   red: 'Overdue',
 };
 
+const TYPE_LABELS: Record<string, string> = {
+  call: '📞 Call',
+  text: '💬 Text',
+  'in-person': '🤝 In Person',
+  'voice-note': '🎙 Voice Note',
+  social: '📱 Social Media',
+  other: '· Other',
+};
+
+const INITIATED_LABELS: Record<string, string> = {
+  me: 'You initiated',
+  them: 'They initiated',
+  mutual: 'Mutual',
+};
+
 function toJsDate(value: unknown): Date | null {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -62,6 +78,9 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
   const { contactId } = route.params;
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [interactions, setInteractions] = useState<any[]>([]);
+  const [interactionsLoading, setInteractionsLoading] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,6 +95,19 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
           Alert.alert('Error', 'Could not load contact.');
         }
         setLoading(false);
+      });
+    }, [contactId])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+      setInteractionsLoading(true);
+      setShowAll(false);
+      getInteractionsByContact(userId, contactId).then((result: any) => {
+        if (result.success) setInteractions(result.data);
+        setInteractionsLoading(false);
       });
     }, [contactId])
   );
@@ -162,12 +194,27 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
         </View>
       )}
 
-      {/* Interaction history placeholder */}
+      {/* Interaction History */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Interaction History</Text>
-        <View style={styles.placeholderBox}>
-          <Text style={styles.placeholderText}>Interaction log coming soon</Text>
-        </View>
+        {interactionsLoading ? (
+          <ActivityIndicator size="small" color="#7C3AED" />
+        ) : interactions.length === 0 ? (
+          <Text style={styles.emptyInteractions}>No interactions logged yet.</Text>
+        ) : (
+          <>
+            {(showAll ? interactions : interactions.slice(0, 5)).map((item) => (
+              <InteractionRow key={item.id} item={item} />
+            ))}
+            {interactions.length > 5 && (
+              <TouchableOpacity onPress={() => setShowAll((prev) => !prev)}>
+                <Text style={styles.showAllLink}>
+                  {showAll ? 'Show less' : `Show all ${interactions.length} interactions`}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
 
       {/* Action buttons */}
@@ -190,6 +237,26 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
       </View>
 
     </ScrollView>
+  );
+}
+
+function InteractionRow({ item }: { item: any }) {
+  const label = TYPE_LABELS[item.type] ?? item.type;
+  const initiatedLabel = item.initiatedBy ? (INITIATED_LABELS[item.initiatedBy] ?? item.initiatedBy) : null;
+  const date = toJsDate(item.date);
+  return (
+    <View style={styles.interactionItem}>
+      <View style={styles.interactionHeader}>
+        <Text style={styles.interactionType}>{label}</Text>
+        <Text style={styles.interactionDate}>{date ? formatDate(date) : '—'}</Text>
+      </View>
+      {initiatedLabel && (
+        <Text style={styles.interactionMeta}>{initiatedLabel}</Text>
+      )}
+      {item.notes && (
+        <Text style={styles.interactionNotes} numberOfLines={2}>{item.notes}</Text>
+      )}
+    </View>
   );
 }
 
@@ -255,13 +322,23 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 14, color: '#9CA3AF', flex: 1 },
   infoValue: { fontSize: 14, color: '#111827', flex: 2, textAlign: 'right' },
 
-  placeholderBox: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 8,
-    padding: 16,
+  interactionItem: {
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    gap: 3,
+  },
+  interactionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  placeholderText: { fontSize: 14, color: '#9CA3AF' },
+  interactionType: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  interactionDate: { fontSize: 13, color: '#9CA3AF' },
+  interactionMeta: { fontSize: 13, color: '#6B7280' },
+  interactionNotes: { fontSize: 13, color: '#374151', lineHeight: 19 },
+  emptyInteractions: { fontSize: 14, color: '#9CA3AF' },
+  showAllLink: { fontSize: 14, fontWeight: '600', color: '#7C3AED', marginTop: 4 },
 
   actions: { gap: 12 },
   primaryButton: {

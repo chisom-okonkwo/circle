@@ -19,12 +19,12 @@ import { getHealthStatus } from '../services/relationshipUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ContactList'>;
 
-const TIER_LABELS = { 1: 'T1', 2: 'T2', 3: 'T3', 4: 'T4' };
-const TIER_COLORS = { 1: '#7C3AED', 2: '#2563EB', 3: '#059669', 4: '#D97706' };
+const TIER_LABELS: Record<number, string> = { 1: 'T1', 2: 'T2', 3: 'T3', 4: 'T4' };
+const TIER_COLORS: Record<number, string> = { 1: '#7C3AED', 2: '#2563EB', 3: '#059669', 4: '#D97706' };
 const HEALTH_COLORS = { green: '#22C55E', yellow: '#F59E0B', red: '#EF4444' };
 const TIER_TABS = [0, 1, 2, 3, 4]; // 0 = All
 
-function toJsDate(value) {
+function toJsDate(value: any) {
   if (!value) return null;
   if (value instanceof Date) return value;
   // Firestore Timestamp shape
@@ -34,7 +34,7 @@ function toJsDate(value) {
 }
 
 export default function ContactListScreen({ navigation }: Props) {
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeTier, setActiveTier] = useState(0);
@@ -70,7 +70,7 @@ export default function ContactListScreen({ navigation }: Props) {
       return (a.name ?? '').localeCompare(b.name ?? '');
     });
 
-  function getContactHealth(contact) {
+  function getContactHealth(contact: any) {
     const nextTouch = toJsDate(contact.nextTouchDate);
     if (!nextTouch) return 'green';
     try {
@@ -80,7 +80,7 @@ export default function ContactListScreen({ navigation }: Props) {
     }
   }
 
-  function renderContact({ item }) {
+  function renderContact({ item }: { item: any }) {
     const health = getContactHealth(item);
     return (
       <Pressable
