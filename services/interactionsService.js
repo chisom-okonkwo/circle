@@ -10,6 +10,7 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { cancelFollowUpNotification } from './followUpNotifications';
 import { computeNextTouchDate } from './relationshipUtils';
 
 const INTERACTIONS_COLLECTION = 'interactions';
@@ -83,6 +84,9 @@ export async function createInteraction(userId, contactId, interactionInput) {
     });
 
     await batch.commit();
+
+    // Cancel any pending 48-hour follow-up notification now that the user has logged an interaction.
+    cancelFollowUpNotification(contactId).catch(() => {});
 
     return success({ id: interactionRef.id });
   } catch (error) {

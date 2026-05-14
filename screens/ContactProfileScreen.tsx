@@ -3,7 +3,6 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     ScrollView,
     StyleSheet,
     Text,
@@ -78,44 +77,63 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
   const { contactId } = route.params;
   const [contact, setContact] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [contactError, setContactError] = useState<string | null>(null);
   const [interactions, setInteractions] = useState<any[]>([]);
   const [interactionsLoading, setInteractionsLoading] = useState(true);
+  const [interactionsError, setInteractionsError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
+  const loadContact = useCallback(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    setLoading(true);
+    setContactError(null);
+    getContactById(userId, contactId).then((result) => {
+      if (result.success && result.data) {
+        setContact(result.data);
+      } else if (!result.success) {
+        setContactError("We couldn't load this contact. Check your connection and try again.");
+      }
+      setLoading(false);
+    });
+  }, [contactId]);
 
-      setLoading(true);
-      getContactById(userId, contactId).then((result) => {
-        if (result.success && result.data) {
-          setContact(result.data);
-        } else {
-          Alert.alert('Error', 'Could not load contact.');
-        }
-        setLoading(false);
-      });
-    }, [contactId])
-  );
+  const loadInteractions = useCallback(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    setInteractionsLoading(true);
+    setInteractionsError(null);
+    setShowAll(false);
+    getInteractionsByContact(userId, contactId).then((result: any) => {
+      if (result.success) {
+        setInteractions(result.data);
+      } else {
+        setInteractionsError("Couldn't load interaction history.");
+      }
+      setInteractionsLoading(false);
+    });
+  }, [contactId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
-      setInteractionsLoading(true);
-      setShowAll(false);
-      getInteractionsByContact(userId, contactId).then((result: any) => {
-        if (result.success) setInteractions(result.data);
-        setInteractionsLoading(false);
-      });
-    }, [contactId])
-  );
+  useFocusEffect(loadContact);
+  useFocusEffect(loadInteractions);
 
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#7C3AED" />
+      </View>
+    );
+  }
+
+  if (contactError) {
+    return (
+      <View style={[styles.centered, { paddingHorizontal: 36 }]}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorTitle}>Something went wrong</Text>
+        <Text style={styles.errorBody}>{contactError}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadContact} activeOpacity={0.85}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -199,8 +217,21 @@ export default function ContactProfileScreen({ route, navigation }: Props) {
         <Text style={styles.sectionTitle}>Interaction History</Text>
         {interactionsLoading ? (
           <ActivityIndicator size="small" color="#7C3AED" />
+        ) : interactionsError ? (
+          <View style={styles.inlineErrorBox}>
+            <Text style={styles.inlineErrorText}>Couldn't load interaction history.</Text>
+            <TouchableOpacity onPress={loadInteractions}>
+              <Text style={styles.inlineRetryLink}>Tap to retry</Text>
+            </TouchableOpacity>
+          </View>
         ) : interactions.length === 0 ? (
-          <Text style={styles.emptyInteractions}>No interactions logged yet.</Text>
+          <View style={styles.emptyInteractionsBox}>
+            <Text style={styles.emptyInteractionsEmoji}>💬</Text>
+            <Text style={styles.emptyInteractionsTitle}>No interactions yet</Text>
+            <Text style={styles.emptyInteractionsBody}>
+              {`Log your first interaction with ${contact.name} to start building your history together.`}
+            </Text>
+          </View>
         ) : (
           <>
             {(showAll ? interactions : interactions.slice(0, 5)).map((item) => (
@@ -337,7 +368,36 @@ const styles = StyleSheet.create({
   interactionDate: { fontSize: 13, color: '#9CA3AF' },
   interactionMeta: { fontSize: 13, color: '#6B7280' },
   interactionNotes: { fontSize: 13, color: '#374151', lineHeight: 19 },
+  errorIcon: { fontSize: 36, marginBottom: 12 },
+  errorTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 8, textAlign: 'center' },
+  errorBody: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 21, marginBottom: 20, paddingHorizontal: 8 },
+  retryButton: { backgroundColor: '#7C3AED', borderRadius: 10, paddingHorizontal: 24, paddingVertical: 11 },
+  retryButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  inlineErrorBox: { paddingVertical: 12, alignItems: 'center', gap: 6 },
+  inlineErrorText: { fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
+  inlineRetryLink: { fontSize: 14, fontWeight: '600', color: '#7C3AED' },
   emptyInteractions: { fontSize: 14, color: '#9CA3AF' },
+  emptyInteractionsBox: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 6,
+  },
+  emptyInteractionsEmoji: {
+    fontSize: 32,
+    marginBottom: 4,
+  },
+  emptyInteractionsTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  emptyInteractionsBody: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 8,
+  },
   showAllLink: { fontSize: 14, fontWeight: '600', color: '#7C3AED', marginTop: 4 },
 
   actions: { gap: 12 },

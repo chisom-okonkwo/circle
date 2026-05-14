@@ -7,6 +7,7 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View,
 } from 'react-native';
 import { RootStackParamList } from '../navigation/AuthNavigator';
@@ -63,23 +64,56 @@ function daysUntilBirthday(birthday: string | null | undefined, today: Date): nu
 export default function HomeScreen({ navigation }: Props) {
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
-      setLoading(true);
-      getContacts(userId).then((result: any) => {
-        if (result.success) setContacts(result.data);
-        setLoading(false);
-      });
-    }, [])
-  );
+  const loadContacts = useCallback(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
+    getContacts(userId).then((result: any) => {
+      if (result.success) {
+        setContacts(result.data);
+      } else {
+        setError("Couldn't load your dashboard.");
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  useFocusEffect(loadContacts);
 
   if (loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#7C3AED" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={[styles.centered, { paddingHorizontal: 36 }]}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorTitle}>Something went wrong</Text>
+        <Text style={styles.errorBody}>
+          We couldn't load your dashboard. Check your connection and try again.
+        </Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadContacts} activeOpacity={0.85}>
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (contacts.length === 0) {
+    return (
+      <View style={[styles.centered, { paddingHorizontal: 36 }]}>
+        <Text style={styles.emptyDashIcon}>🌱</Text>
+        <Text style={styles.emptyDashTitle}>Your dashboard is waiting</Text>
+        <Text style={styles.emptyDashBody}>
+          {'Head to My Contacts and add the people who matter most. Relationship health, upcoming birthdays, and overdue reminders will all appear here.'}
+        </Text>
       </View>
     );
   }
@@ -130,7 +164,9 @@ export default function HomeScreen({ navigation }: Props) {
       {/* ── Section 1: Birthdays ── */}
       <Text style={styles.sectionTitle}>🎂 Upcoming Birthdays</Text>
       {birthdayContacts.length === 0 ? (
-        <Text style={styles.emptyText}>No birthdays in the next 3 days.</Text>
+        <Text style={styles.emptyText}>
+          {'No upcoming birthdays this week — add one from a contact\'s profile to get a reminder.'}
+        </Text>
       ) : (
         birthdayContacts.map(({ contact, daysAway }) => (
           <Pressable
@@ -150,7 +186,13 @@ export default function HomeScreen({ navigation }: Props) {
       {/* ── Section 2: Overdue ── */}
       <Text style={[styles.sectionTitle, styles.sectionSpacing]}>🔴 Overdue</Text>
       {overdueContacts.length === 0 ? (
-        <Text style={styles.emptyText}>You're all caught up!</Text>
+        <View style={styles.caughtUpCard}>
+          <Text style={styles.caughtUpEmoji}>✅</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.caughtUpTitle}>All caught up!</Text>
+            <Text style={styles.caughtUpBody}>Every relationship is right on schedule.</Text>
+          </View>
+        </View>
       ) : (
         overdueContacts.map(({ contact, daysOverdue }) => (
           <Pressable
@@ -290,5 +332,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  errorIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  emptyDashIcon: {
+    fontSize: 56,
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  emptyDashTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  emptyDashBody: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 23,
+  },
+  caughtUpCard: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 10,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  caughtUpEmoji: {
+    fontSize: 24,
+  },
+  caughtUpTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#166534',
+    marginBottom: 2,
+  },
+  caughtUpBody: {
+    fontSize: 13,
+    color: '#16A34A',
   },
 });

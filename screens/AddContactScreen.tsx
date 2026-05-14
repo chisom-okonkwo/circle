@@ -15,6 +15,7 @@ import {
 import { RootStackParamList } from '../navigation/AuthNavigator';
 import { createContact, getContactById, updateContact } from '../services/contactsService';
 import { auth } from '../services/firebase';
+import { scheduleFollowUpNotification } from '../services/followUpNotifications';
 import { computeNextTouchDate } from '../services/relationshipUtils';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddContact'>;
@@ -57,6 +58,8 @@ export default function AddContactScreen({ route, navigation }: Props) {
 
   const [form, setForm] = useState(EMPTY_FORM);
   const [loadingContact, setLoadingContact] = useState(isEditing);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryKey, setRetryKey] = useState(0);
   const [saving, setSaving] = useState(false);
 
   useLayoutEffect(() => {
@@ -68,6 +71,8 @@ export default function AddContactScreen({ route, navigation }: Props) {
     const userId = auth.currentUser?.uid;
     if (!userId) return;
 
+    setLoadingContact(true);
+    setLoadError(null);
     getContactById(userId, contactId).then((result) => {
       if (result.success && result.data) {
         const c = result.data;
@@ -82,10 +87,12 @@ export default function AddContactScreen({ route, navigation }: Props) {
           followUpNote: c.followUpNote ?? '',
           notes: c.notes ?? '',
         });
+      } else if (!result.success) {
+        setLoadError("Couldn't load this contact. Check your connection and try again.");
       }
       setLoadingContact(false);
     });
-  }, [isEditing, contactId]);
+  }, [isEditing, contactId, retryKey]);
 
   function set(field: string, value: string | number) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -148,6 +155,11 @@ export default function AddContactScreen({ route, navigation }: Props) {
       return;
     }
 
+    // Schedule a 48-hour follow-up reminder for new Tier 4 contacts.
+    if (!isEditing && form.tier === 4 && result.data?.id) {
+      scheduleFollowUpNotification(result.data.id, form.name.trim()).catch(() => {});
+    }
+
     navigation.goBack();
   }
 
@@ -155,6 +167,23 @@ export default function AddContactScreen({ route, navigation }: Props) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#7C3AED" />
+      </View>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <View style={[styles.centered, { paddingHorizontal: 36 }]}>
+        <Text style={styles.errorIcon}>⚠️</Text>
+        <Text style={styles.errorTitle}>Couldn't load contact</Text>
+        <Text style={styles.errorBody}>{loadError}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => { setLoadError(null); setRetryKey((k) => k + 1); }}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -309,6 +338,36 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  errorIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   fieldGroup: {
     gap: 6,

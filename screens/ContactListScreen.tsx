@@ -1,6 +1,7 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -36,23 +37,40 @@ function toJsDate(value: any) {
 export default function ContactListScreen({ navigation }: Props) {
   const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeTier, setActiveTier] = useState(0);
 
-  useFocusEffect(
-    useCallback(() => {
-      const userId = auth.currentUser?.uid;
-      if (!userId) return;
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => navigation.navigate('Settings')}
+          style={{ padding: 6, marginRight: 4 }}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons name="settings-outline" size={22} color="#7C3AED" />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
-      setLoading(true);
-      getContacts(userId).then((result) => {
-        if (result.success) {
-          setContacts(result.data);
-        }
-        setLoading(false);
-      });
-    }, [])
-  );
+  const loadContacts = useCallback(() => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) return;
+    setLoading(true);
+    setError(null);
+    getContacts(userId).then((result) => {
+      if (result.success) {
+        setContacts(result.data);
+      } else {
+        setError("Couldn't load your contacts.");
+      }
+      setLoading(false);
+    });
+  }, []);
+
+  useFocusEffect(loadContacts);
 
   const HEALTH_RANK = { red: 0, yellow: 1, green: 2 };
 
@@ -136,11 +154,36 @@ export default function ContactListScreen({ navigation }: Props) {
         <View style={styles.centered}>
           <ActivityIndicator size="large" color="#7C3AED" />
         </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorBody}>
+            We couldn't load your contacts. Check your connection and try again.
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={loadContacts} activeOpacity={0.85}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : contacts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>👥</Text>
+          <Text style={styles.emptyTitle}>Your circle is empty</Text>
+          <Text style={styles.emptyBody}>
+            {'Start by adding the people who matter most — close friends, family, and colleagues you want to stay in touch with.'}
+          </Text>
+          <TouchableOpacity
+            style={styles.emptyAction}
+            onPress={() => navigation.navigate('AddContact')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.emptyActionText}>Add your first contact</Text>
+          </TouchableOpacity>
+        </View>
       ) : filtered.length === 0 ? (
         <View style={styles.centered}>
-          <Text style={styles.emptyText}>
-            {contacts.length === 0 ? 'No contacts yet. Add your first one.' : 'No contacts match your search.'}
-          </Text>
+          <Text style={styles.emptyText}>No contacts match your search.</Text>
+          <Text style={styles.emptySubText}>Try a different name, or tap ＋ to add them.</Text>
         </View>
       ) : (
         <FlatList
@@ -257,10 +300,81 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 32,
   },
+  errorIcon: {
+    fontSize: 36,
+    marginBottom: 12,
+  },
+  errorTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  errorBody: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 11,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
   emptyText: {
     fontSize: 15,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  emptySubText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 6,
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+    paddingBottom: 80,
+  },
+  emptyIcon: {
+    fontSize: 52,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyBody: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  emptyAction: {
+    backgroundColor: '#7C3AED',
+    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+  },
+  emptyActionText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
   fab: {
     position: 'absolute',
